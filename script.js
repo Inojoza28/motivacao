@@ -1853,57 +1853,51 @@ function shuffle(array) {
 
 // ====== Exibir Frase do Dia ======
 function showDailyMessage() {
-  if (!messages || messages.length === 0) {
-    console.warn("Nenhuma mensagem disponível no array 'messages'.");
-    dailyQuoteEl.textContent = "Nenhuma mensagem disponível.";
-    explanationEl.textContent = "";
+  if (messages.length === 0) {
     return;
   }
 
-  // Recupera dados do localStorage
-  const storedDate = localStorage.getItem("motivationDate");
-  const storedIndex = parseInt(localStorage.getItem("motivationIndex"), 10);
+  let storedDate = localStorage.getItem("motivationDate");
+  let storedIndex = parseInt(localStorage.getItem("motivationIndex"), 10);
   let shuffled = JSON.parse(localStorage.getItem("shuffledMessages") || "[]");
-  
-  // Obtém 'hoje' (ajustado para 06h)
-  const today = getCurrentDay();
 
-  // Se não há array embaralhado válido
+  const today = getCurrentDay();
   if (!Array.isArray(shuffled) || shuffled.length !== messages.length) {
     shuffled = shuffle([...messages]);
-    localStorage.setItem("shuffledMessages", JSON.stringify(shuffled));
-    localStorage.setItem("motivationIndex", -1);
+    storedIndex = -1;
   }
 
-  let newIndex = storedIndex;
-
-  // Se não há data salva ou se mudou o dia
-  if (!storedDate || storedDate !== today) {
-    // Incrementa o índice
-    newIndex = (newIndex === null || isNaN(newIndex)) ? 0 : newIndex + 1;
-
-    // Se passou do tamanho, reembaralha e zera
-    if (newIndex >= shuffled.length) {
-      shuffled = shuffle([...messages]);
-      localStorage.setItem("shuffledMessages", JSON.stringify(shuffled));
-      newIndex = 0;
+  // Se É o mesmo dia, NÃO incrementa o índice novamente
+  if (storedDate === today) {
+    // Então só exibe a frase que já estava armazenada
+    if (isNaN(storedIndex) || storedIndex < 0 || storedIndex >= shuffled.length) {
+      // Corrigir se for inválido
+      storedIndex = 0;
     }
-
+  } else {
+    // É dia novo, incrementa
+    storedIndex++;
+    if (storedIndex >= shuffled.length) {
+      shuffled = shuffle([...messages]);
+      storedIndex = 0;
+    }
     localStorage.setItem("motivationDate", today);
-    localStorage.setItem("motivationIndex", newIndex);
+    localStorage.setItem("shuffledMessages", JSON.stringify(shuffled));
+    localStorage.setItem("motivationIndex", storedIndex);
   }
 
-  if (newIndex === null || isNaN(newIndex) || newIndex < 0 || newIndex >= shuffled.length) {
-    console.error("Índice inválido para mensagens motivacionais.", newIndex);
+  if (isNaN(storedIndex) || storedIndex < 0 || storedIndex >= shuffled.length) {
+    console.error("Índice inválido.");
     dailyQuoteEl.textContent = "Erro ao carregar a mensagem.";
     explanationEl.textContent = "";
     return;
   }
 
-  const dailyMsg = shuffled[newIndex];
+  const dailyMsg = shuffled[storedIndex];
   dailyQuoteEl.textContent = dailyMsg.frase;
   explanationEl.textContent = dailyMsg.explicacao;
 }
+
 
 // ====== getCurrentDay: Lógica das 06h ======
 function getCurrentDay() {
