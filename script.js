@@ -1836,14 +1836,13 @@ const dailyQuoteEl = document.getElementById("dailyQuote");
 const explanationEl = document.getElementById("explanation");
 const motivationCard = document.getElementById("motivationCard");
 
-// NOVOS botões:
+// Botões
 const downloadImageBtn = document.getElementById("downloadImageBtn");
 const copyTextBtn = document.getElementById("copyTextBtn");
 
 // ====== Embaralhar o array ======
 function shuffle(array) {
   let currentIndex = array.length, randomIndex;
-
   while (currentIndex !== 0) {
     randomIndex = Math.floor(Math.random() * currentIndex);
     currentIndex--;
@@ -1854,49 +1853,59 @@ function shuffle(array) {
 
 // ====== Exibir Frase do Dia ======
 function showDailyMessage() {
-  if (messages.length === 0) {
-    console.warn("Nenhuma mensagem disponível.");
+  if (!messages || messages.length === 0) {
+    console.warn("Nenhuma mensagem disponível no array 'messages'.");
+    dailyQuoteEl.textContent = "Nenhuma mensagem disponível.";
+    explanationEl.textContent = "";
     return;
   }
 
-  let storedDate = localStorage.getItem("motivationDate");
-  let storedIndex = parseInt(localStorage.getItem("motivationIndex"), 10);
+  // Recupera dados do localStorage
+  const storedDate = localStorage.getItem("motivationDate");
+  const storedIndex = parseInt(localStorage.getItem("motivationIndex"), 10);
   let shuffled = JSON.parse(localStorage.getItem("shuffledMessages") || "[]");
-
+  
+  // Obtém 'hoje' (ajustado para 06h)
   const today = getCurrentDay();
 
   // Se não há array embaralhado válido
   if (!Array.isArray(shuffled) || shuffled.length !== messages.length) {
     shuffled = shuffle([...messages]);
-    storedIndex = -1; // força exibir a primeira ao entrar
+    localStorage.setItem("shuffledMessages", JSON.stringify(shuffled));
+    localStorage.setItem("motivationIndex", -1);
   }
 
-  // Se mudou o dia, incrementa o índice
+  let newIndex = storedIndex;
+
+  // Se não há data salva ou se mudou o dia
   if (!storedDate || storedDate !== today) {
-    storedIndex++;
+    // Incrementa o índice
+    newIndex = (newIndex === null || isNaN(newIndex)) ? 0 : newIndex + 1;
 
     // Se passou do tamanho, reembaralha e zera
-    if (storedIndex >= shuffled.length) {
+    if (newIndex >= shuffled.length) {
       shuffled = shuffle([...messages]);
-      storedIndex = 0;
+      localStorage.setItem("shuffledMessages", JSON.stringify(shuffled));
+      newIndex = 0;
     }
 
     localStorage.setItem("motivationDate", today);
-    localStorage.setItem("motivationIndex", storedIndex);
-    localStorage.setItem("shuffledMessages", JSON.stringify(shuffled));
+    localStorage.setItem("motivationIndex", newIndex);
   }
 
-  if (isNaN(storedIndex) || storedIndex < 0 || storedIndex >= shuffled.length) {
-    console.error("Índice inválido para mensagens motivacionais.");
+  if (newIndex === null || isNaN(newIndex) || newIndex < 0 || newIndex >= shuffled.length) {
+    console.error("Índice inválido para mensagens motivacionais.", newIndex);
+    dailyQuoteEl.textContent = "Erro ao carregar a mensagem.";
+    explanationEl.textContent = "";
     return;
   }
 
-  const dailyMsg = shuffled[storedIndex];
+  const dailyMsg = shuffled[newIndex];
   dailyQuoteEl.textContent = dailyMsg.frase;
   explanationEl.textContent = dailyMsg.explicacao;
 }
 
-// ====== Função para Determinar o "Dia Atual" com Base nas 06h ======
+// ====== getCurrentDay: Lógica das 06h ======
 function getCurrentDay() {
   const now = new Date();
   if (now.getHours() < 6) {
@@ -1907,7 +1916,7 @@ function getCurrentDay() {
 
 // ====== Compartilhar / Salvar como Imagem ======
 async function shareCard() {
-  if (messages.length === 0) {
+  if (!messages || messages.length === 0) {
     console.warn("Nenhuma mensagem disponível para compartilhar.");
     return;
   }
@@ -1923,15 +1932,13 @@ async function shareCard() {
     link.download = `motivacao_${formatDate(new Date())}.png`;
     link.href = dataURL;
     link.click();
-    console.log("Imagem baixada com sucesso!");
   } catch (error) {
     console.error("Erro ao baixar a imagem:", error);
   }
 }
 
-// ====== Copiar Texto para a Área de Transferência ======
+// ====== Copiar Texto ======
 function copyTextToClipboard() {
-  // Obter a frase e a explicação direto do DOM
   const quote = dailyQuoteEl.textContent;
   const explanation = explanationEl.textContent;
   const fullText = `${quote}\n\n${explanation}`;
@@ -1939,7 +1946,6 @@ function copyTextToClipboard() {
   navigator.clipboard.writeText(fullText)
     .then(() => {
       console.log("Texto copiado com sucesso!");
-      // Aqui você pode exibir um alert ou qualquer feedback visual
       alert("Texto copiado para a área de transferência!");
     })
     .catch((err) => {
@@ -1948,15 +1954,15 @@ function copyTextToClipboard() {
     });
 }
 
-// ====== Função para Formatar a Data ======
+// ====== Formatar Data ======
 function formatDate(date) {
   const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0'); // Janeiro é 0
+  const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   return `${year}-${month}-${day}`;
 }
 
-// ====== Agendamento de Atualização ======
+// ====== scheduleNextUpdate ======
 function scheduleNextUpdate() {
   const now = new Date();
   const next6AM = new Date();
@@ -1967,25 +1973,23 @@ function scheduleNextUpdate() {
   }
 
   const timeout = next6AM - now;
-
   setTimeout(() => {
     showDailyMessage();
     scheduleNextUpdate();
   }, timeout);
 }
 
-// ====== Service Worker para PWA ======
+// ====== registerServiceWorker ======
 function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").then(
-        registration => {
-          console.log("Service Worker registrado:", registration.scope);
-        },
-        err => {
+      navigator.serviceWorker.register("sw.js")
+        .then(reg => {
+          console.log("Service Worker registrado:", reg.scope);
+        })
+        .catch(err => {
           console.log("Falha ao registrar Service Worker:", err);
-        }
-      );
+        });
     });
   }
 }
@@ -1994,11 +1998,8 @@ function registerServiceWorker() {
 document.addEventListener("DOMContentLoaded", () => {
   showDailyMessage();
   registerServiceWorker();
-
-  // Associa cada botão à função desejada
   downloadImageBtn.addEventListener("click", shareCard);
   copyTextBtn.addEventListener("click", copyTextToClipboard);
-
   scheduleNextUpdate();
 });
 
